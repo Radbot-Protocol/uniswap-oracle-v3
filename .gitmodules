@@ -1,0 +1,3 @@
+[submodule "lib/uniswap-v2-periphery"]
+	path = lib/uniswap-v2-periphery
+	url = https://github.com/Uniswap/v2-periphery.git
