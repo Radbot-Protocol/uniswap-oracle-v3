@@ -12,24 +12,20 @@ import "../libraries/SafeMath.sol";
 import "../libraries/UniswapV2Library.sol";
 import "../libraries/UniswapV2OracleLibrary.sol";
 
+import "../../interfaces/ISlidingWindowOracle.sol";
+
 // sliding window oracle that uses observations collected over a window to provide moving price averages in the past
 // `windowSize` with a precision of `windowSize / granularity`
 // note this is a singleton oracle and only needs to be deployed once per desired parameters, which
 // differs from the simple oracle which must be deployed once per pair.
-contract SlidingWindowOracle {
+contract SlidingWindowOracle is ISlidingWindowOracle {
     using FixedPoint for *;
     using SafeMath for uint;
 
-    struct Observation {
-        uint timestamp;
-        uint price0Cumulative;
-        uint price1Cumulative;
-    }
-
-    address public pairV2;
-    address public immutable factory;
+    address public override pairV2;
+    address public immutable override factory;
     // the desired amount of time over which the moving average should be computed, e.g. 24 hours
-    uint public immutable windowSize;
+    uint public immutable override windowSize;
     // the number of observations stored for each pair, i.e. how many price observations are stored for the window.
     // as granularity increases from 1, more frequent updates are needed, but moving averages become more precise.
     // averages are computed over intervals with sizes in the range:
@@ -37,12 +33,12 @@ contract SlidingWindowOracle {
     // e.g. if the window size is 24 hours, and the granularity is 24, the oracle will return the average price for
     //   the period:
     //   [now - [22 hours, 24 hours], now]
-    uint8 public immutable granularity;
+    uint8 public immutable override granularity;
     // this is redundant with granularity and windowSize, but stored for gas savings & informational purposes.
-    uint public immutable periodSize;
+    uint public immutable override periodSize;
 
     // mapping from pair address to a list of price observations of that pair
-    mapping(address => Observation[]) public pairObservations;
+    mapping(address => Observation[]) public override pairObservations;
 
     constructor(address factory_, uint windowSize_, uint8 granularity_) {
         require(granularity_ > 1, "SlidingWindowOracle: GRANULARITY");
@@ -59,7 +55,7 @@ contract SlidingWindowOracle {
     // returns the index of the observation corresponding to the given timestamp
     function observationIndexOf(
         uint timestamp
-    ) public view returns (uint8 index) {
+    ) public view override returns (uint8 index) {
         uint epochPeriod = timestamp / periodSize;
         return uint8(epochPeriod % granularity);
     }
@@ -76,7 +72,7 @@ contract SlidingWindowOracle {
 
     // update the cumulative price for the observation at the current timestamp. each observation is updated at most
     // once per epoch period.
-    function update(address tokenA, address tokenB) public virtual {
+    function update(address tokenA, address tokenB) public virtual override {
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
 
         if (pairV2 == address(0)) {
@@ -130,7 +126,7 @@ contract SlidingWindowOracle {
         address tokenIn,
         uint amountIn,
         address tokenOut
-    ) external view returns (uint amountOut) {
+    ) external view override returns (uint amountOut) {
         address pair = UniswapV2Library.pairFor(factory, tokenIn, tokenOut);
         Observation storage firstObservation = getFirstObservationInWindow(
             pair
